@@ -2899,7 +2899,7 @@ const datasets = [
     "type": "image_collection",
     "bands": [
       {
-        "id": "eto"
+        "id": "ETo"
       }
     ]
   },
@@ -5526,9 +5526,3 @@ const datasets = [
     "end_date_update_programmatically": "true"
   }
 ];
-
-export default function handler(req, res){
-  res.status(200).json(datasets);
-}
-
-export { datasets };
