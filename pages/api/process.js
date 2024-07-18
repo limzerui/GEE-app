@@ -320,7 +320,7 @@ export default async function handler(req, res) {
             console.log("in ESA WorldCover region");
             const imageCollection = ee.ImageCollection(datasetId).first();
             const visParams = {
-              bads: ["Map"],
+              bands: ["Map"],
             };
             generateMapUrl(imageCollection, visParams);
           } else if (
@@ -464,16 +464,55 @@ export default async function handler(req, res) {
               console.log("Image Collection Size:", size);
             });
             processedImage = getProcessedImage(imageCollection);
+            const globalBoundingGeometry = ee.Geometry.Polygon(
+              [
+                [
+                  [-180, -90],
+                  [180, -90],
+                  [180, 90],
+                  [-180, 90],
+                  [-180, -90],
+                ],
+              ],
+              null,
+              false
+            );
             const firstImage = imageCollection.first();
             const boundingGeometry = firstImage.geometry().bounds();
             console.log("bounding geom", boundingGeometry);
             boundingGeometry.evaluate(function (clientBoundingGeometry) {
               if (!clientBoundingGeometry) {
                 console.error("Bounding Geometry is null or undefined");
-                return res
-                  .status(500)
-                  .json({ message: "Bounding Geom is null" });
-              }
+                const stats = processedImage.reduceRegion({
+                  reducer: ee.Reducer.minMax(),
+                  geometry: globalBoundingGeometry,
+                  scale: scale,
+                  maxPixels: 1e9,
+                });
+                stats.evaluate(function (statsDict) {
+                  if (!statsDict) {
+                    console.error("stats dict is null or undefined");
+                    return res
+                      .status(500)
+                      .json({ message: "stats dict is null or undefined" });
+                  }
+                  console.log(
+                    "States dictionary",
+                    JSON.stringify(statsDict, null, 2)
+                  );
+                  const min = statsDict[`${bands[0]}_min`];
+                  const max = statsDict[`${bands[0]}_max`];
+                  console.log("min:", min);
+                  console.log("max", max);
+                  const visParams = {
+                    min: min,
+                    max: max,
+                    bands: bands,
+                    palette: ["blue", "cyan", "green", "yellow", "red"],
+                  };
+                  generateMapUrl(processedImage, visParams);
+                });
+              } else {
               console.log(
                 "Bounding Geometry:",
                 JSON.stringify(clientBoundingGeometry, null, 2)
@@ -508,6 +547,7 @@ export default async function handler(req, res) {
                 };
                 generateMapUrl(processedImage, visParams);
               });
+            }
             });
           }
         },
